@@ -3,7 +3,7 @@
 This repository contains three Python scripts for end-to-end financial data collection from **Borsa Italiana** and **Yahoo Finance**:
 
 1. **`bi_scraper.py`** — Scrapes Italian market tickers and company data (CEO, shareholders).  
-2. **`yf_financials_fy_with_metrics_fystrict.py`** — Downloads fiscal-year-only financial statements and metrics.  
+2. **`yf_fundamentals.py`** — Downloads fiscal-year-only financial statements and metrics.  
 3. **`yf_prices.py`** — Downloads historical prices, volumes, and shares outstanding.
 
 Each script outputs clean, analysis-ready Excel or CSV files.
@@ -36,7 +36,7 @@ python bi_scraper.py
 
 **Example columns:**
 | segment | ticker | isin | company | ceo_name | shareholding |
-|-|--||-|--|--|
+|----------|--------|------|----------|-----------|--------------|
 | mid-cap | ABCD | IT0001234567 | ABC S.p.A. | Mario Rossi | Free float: 45.00 %; XYZ Holding: 30.00 % |
 
 ## 2. Yahoo Finance Fundamentals Downloader (`yf_fundamentals.py`)
@@ -105,6 +105,5 @@ python yf_prices.py --tickers-file tickers.txt --start 2022-01-01 --end 2025-10-
 - Historical shares outstanding where available, otherwise latest.
 
 ## License
-
 MIT License.  
 Data from Yahoo Finance and Borsa Italiana are subject to their respective terms of service.
