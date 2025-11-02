@@ -1,4 +1,4 @@
-# Financial Data Toolkit
+# Italian stocks downloader
 
 This repository contains three Python scripts for end-to-end financial data collection from **Borsa Italiana** and **Yahoo Finance**:
 
