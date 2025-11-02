@@ -14,7 +14,7 @@ What this enforces:
     plus raw FY values used.
 
 Usage:
-  python yf_fundamentals.py --tickers tickers.txt --outfile financials.xlsx --sleep 1.0
+  python yf_fundamentals.py --tickers tickers.txt --outfile fundamentals.xlsx --sleep 1.0
 """
 
 import argparse
@@ -307,7 +307,7 @@ def compute_metrics(ticker: str, info: Dict[str, Any], is_fy: pd.DataFrame, bs_f
 def main():
     ap = argparse.ArgumentParser(description="Annual statements via yfinance, FY-only columns, single Excel, with Metrics.")
     ap.add_argument("--tickers", default="tickers.txt", help="Path to tickers.txt (one per line, or comma-separated).")
-    ap.add_argument("--outfile", default="financials_fy_strict.xlsx", help="Output Excel workbook path.")
+    ap.add_argument("--outfile", default="fundamentals.xlsx", help="Output Excel workbook path.")
     ap.add_argument("--sleep", type=float, default=1.0, help="Seconds to sleep between tickers to avoid throttling.")
     ap.add_argument("--no-index", action="store_true", help="Do not create an Index sheet.")
     args = ap.parse_args()

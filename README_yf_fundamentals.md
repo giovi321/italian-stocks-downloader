@@ -26,14 +26,14 @@ pip install yfinance pandas openpyxl
 
 ## Usage
 ```bash
-python yf_financials_fy_with_metrics_fystrict.py --tickers tickers.txt --outfile financials_fy_strict.xlsx --sleep 1.0
+python yf_fundamentals.py --tickers tickers.txt --outfile fundamentals.xlsx --sleep 1.0
 ```
 
 **Arguments**
 | Option | Description | Default |
 |---------|-------------|----------|
 | `--tickers` | Path to tickers list | `tickers.txt` |
-| `--outfile` | Output Excel file | `financials_fy_strict.xlsx` |
+| `--outfile` | Output Excel file | `fundamentals.xlsx` |
 | `--sleep` | Seconds between requests | `1.0` |
 | `--no-index` | Skip Index sheet | false |
 

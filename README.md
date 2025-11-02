@@ -56,7 +56,7 @@ pip install yfinance pandas openpyxl
 
 ### Usage
 ```bash
-python yf_financials_fy_with_metrics_fystrict.py --tickers tickers.txt --outfile financials_fy_strict.xlsx --sleep 1.0
+python yf_fundamentals.py --tickers tickers.txt --outfile fundamentals.xlsx --sleep 1.0
 ```
 
 **tickers.txt**
