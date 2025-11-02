@@ -20,7 +20,7 @@ Ticker, ISIN, company name, CEO, and shareholding details.
 
 ### Requirements
 ```bash
-pip install requests beautifulsoup4 lxml
+pip install requests beautifulsoup4 lxml pandas yfinance openpyxl
 ```
 
 ### Usage
@@ -48,7 +48,7 @@ Downloads **fiscal-year-only** Income Statement, Balance Sheet, Cash Flow, and c
 
 ### Requirements
 ```bash
-pip install yfinance pandas openpyxl
+pip install yfinance pandas openpyxl pandas yfinance openpyxl
 ```
 
 ### Usage
@@ -85,7 +85,7 @@ Downloads **historical adjusted or raw prices**, volumes, and shares outstanding
 
 ### Requirements
 ```bash
-pip install yfinance pandas openpyxl
+pip install yfinance pandas openpyxl pandas yfinance openpyxl
 ```
 
 ### Usage
