@@ -2,16 +2,14 @@
 
 This repository contains three Python scripts for end-to-end financial data collection from **Borsa Italiana** and **Yahoo Finance**:
 
-1. **`bi_scraper.py`** — Scrapes Italian market tickers and company data (CEO, shareholders).  
-2. **`yf_fundamentals.py`** — Downloads fiscal-year-only financial statements and metrics.  
-3. **`yf_prices.py`** — Downloads historical prices, volumes, and shares outstanding.
+1. [bi_scraper.py](bi_scraper.py) — Scrapes Italian market tickers and company data (CEO, shareholders) [[Detailed readme](README_bi_scraper.py)]
+2. [yf_fundamentals.py](yf_fundamentals.py) — Downloads fiscal-year-only financial statements and metrics [[Detailed readme](README_yf_fundamentals.py)]
+3. [yf_prices.py](yf_fundamentals.py) — Downloads historical prices, volumes, and shares outstanding [[Detailed readme](README_yf_fundamentals.py)]
 
 Each script outputs clean, analysis-ready Excel or CSV files.
 
 ## 1. Borsa Italiana Ticker Scraper (`bi_scraper.py`)
-
 Scrapes all tickers and company data from:
-
 - Euronext Growth Milan  
 - Euronext STAR Milan  
 - Mid Cap  
@@ -40,7 +38,6 @@ python bi_scraper.py
 | mid-cap | ABCD | IT0001234567 | ABC S.p.A. | Mario Rossi | Free float: 45.00 %; XYZ Holding: 30.00 % |
 
 ## 2. Yahoo Finance Fundamentals Downloader (`yf_fundamentals.py`)
-
 Downloads **fiscal-year-only** Income Statement, Balance Sheet, Cash Flow, and computed metrics for each ticker.
 
 ### Features
@@ -78,7 +75,6 @@ AAPL_Metrics
 Skipped tickers produce no sheets.
 
 ## 3. Yahoo Finance Prices Downloader (`yf_prices.py`)
-
 Downloads **historical adjusted or raw prices**, volumes, and shares outstanding for multiple tickers into one Excel file.
 
 ### Features
