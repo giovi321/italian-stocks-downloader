@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
-Annual financials only, single Excel workbook, FY-strict.
+All financials (annual and quarterly), single Excel workbook, FY-strict for annual data.
 
 What this enforces:
 - Detect each company's fiscal year-end month from yfinance .info (when available) or
   infer the mode of statement column months.
-- Keep ONLY columns whose end-month matches the inferred fiscal year-end month.
+- Keep ONLY columns whose end-month matches the inferred fiscal year-end month for ANNUAL data.
   This removes interim/half-year columns like 30 June when FY-end is December.
-- Skip tickers with no annual data after FY filtering.
-- Add a per-ticker Metrics sheet computed from FY-only values:
+- Include ALL quarterly data without FY filtering.
+- Skip tickers with no data after filtering.
+- Add a per-ticker Metrics sheet computed from FY-only values and quarterly values:
     market_cap, enterprise_value, ev_to_revenue, ev_to_ebitda,
     total_cash, total_debt, current_ratio, debt_to_equity, roa, roe,
-    plus raw FY values used.
+    plus raw FY and quarterly values used.
 
 Usage:
   python yf_fundamentals.py --tickers tickers.txt --outfile fundamentals.xlsx --sleep 1.0
@@ -59,7 +60,7 @@ def safe_df(df: Optional[pd.DataFrame]) -> pd.DataFrame:
     return df
 
 
-def fetch_annual_only(ticker: str):
+def fetch_all_financials(ticker: str):
     t = yf.Ticker(ticker)
     # Info
     info = {}
@@ -68,7 +69,7 @@ def fetch_annual_only(ticker: str):
     except Exception:
         info = {}
 
-    # Annual statements only
+    # Annual statements
     try:
         is_annual = safe_df(t.financials)  # Annual Income Statement
     except Exception:
@@ -82,7 +83,21 @@ def fetch_annual_only(ticker: str):
     except Exception:
         cf_annual = pd.DataFrame()
 
-    return info, is_annual, bs_annual, cf_annual
+    # Quarterly statements
+    try:
+        is_quarterly = safe_df(t.quarterly_financials)  # Quarterly Income Statement
+    except Exception:
+        is_quarterly = pd.DataFrame()
+    try:
+        bs_quarterly = safe_df(t.quarterly_balance_sheet)  # Quarterly Balance Sheet
+    except Exception:
+        bs_quarterly = pd.DataFrame()
+    try:
+        cf_quarterly = safe_df(t.quarterly_cashflow)  # Quarterly Cash Flow
+    except Exception:
+        cf_quarterly = pd.DataFrame()
+
+    return info, is_annual, bs_annual, cf_annual, is_quarterly, bs_quarterly, cf_quarterly
 
 
 def _to_datetime_cols(cols: Iterable) -> Optional[pd.DatetimeIndex]:
@@ -203,7 +218,8 @@ def _safe_div(a: Optional[float], b: Optional[float]) -> Optional[float]:
         return None
 
 
-def compute_metrics(ticker: str, info: Dict[str, Any], is_fy: pd.DataFrame, bs_fy: pd.DataFrame) -> pd.DataFrame:
+def compute_metrics(ticker: str, info: Dict[str, Any], is_fy: pd.DataFrame, bs_fy: pd.DataFrame, 
+                   is_q: pd.DataFrame, bs_q: pd.DataFrame) -> pd.DataFrame:
     mc = _get_info_first(info, ["marketCap", "marketcap"])
     if mc is None:
         try:
@@ -242,10 +258,11 @@ def compute_metrics(ticker: str, info: Dict[str, Any], is_fy: pd.DataFrame, bs_f
                 found_any = True
         total_debt = s if found_any else None
 
-    revenue = _find_row_value(is_fy, ["Total Revenue", "TotalRevenue", "Revenue"])
-    ebitda = _find_row_value(is_fy, ["EBITDA", "Ebitda"])
-
-    equity = _find_row_value(bs_fy, [
+    # Annual values
+    revenue_fy = _find_row_value(is_fy, ["Total Revenue", "TotalRevenue", "Revenue"])
+    ebitda_fy = _find_row_value(is_fy, ["EBITDA", "Ebitda"])
+    net_income_fy = _find_row_value(is_fy, ["Net Income", "NetIncome", "Net Income Common Stockholders"])
+    equity_fy = _find_row_value(bs_fy, [
         "Total Stockholder Equity",
         "Total Stockholders' Equity",
         "Stockholders Equity",
@@ -253,9 +270,33 @@ def compute_metrics(ticker: str, info: Dict[str, Any], is_fy: pd.DataFrame, bs_f
         "Total Equity Gross Minority Interest",
         "Total Equity",
     ])
-    total_assets = _find_row_value(bs_fy, ["Total Assets"])
-    current_assets = _find_row_value(bs_fy, ["Total Current Assets", "Current Assets"])
-    current_liabilities = _find_row_value(bs_fy, ["Total Current Liabilities", "Current Liabilities"])
+    total_assets_fy = _find_row_value(bs_fy, ["Total Assets"])
+    current_assets_fy = _find_row_value(bs_fy, ["Total Current Assets", "Current Assets"])
+    current_liabilities_fy = _find_row_value(bs_fy, ["Total Current Liabilities", "Current Liabilities"])
+
+    # Quarterly values (most recent)
+    revenue_q = _find_row_value(is_q, ["Total Revenue", "TotalRevenue", "Revenue"])
+    ebitda_q = _find_row_value(is_q, ["EBITDA", "Ebitda"])
+    net_income_q = _find_row_value(is_q, ["Net Income", "NetIncome", "Net Income Common Stockholders"])
+    equity_q = _find_row_value(bs_q, [
+        "Total Stockholder Equity",
+        "Total Stockholders' Equity",
+        "Stockholders Equity",
+        "Shareholders Equity",
+        "Total Equity Gross Minority Interest",
+        "Total Equity",
+    ])
+    total_assets_q = _find_row_value(bs_q, ["Total Assets"])
+    current_assets_q = _find_row_value(bs_q, ["Total Current Assets", "Current Assets"])
+    current_liabilities_q = _find_row_value(bs_q, ["Total Current Liabilities", "Current Liabilities"])
+
+    equity = equity_fy or equity_q
+    total_assets = total_assets_fy or total_assets_q
+    current_assets = current_assets_fy or current_assets_q
+    current_liabilities = current_liabilities_fy or current_liabilities_q
+    net_income = net_income_fy or net_income_q
+    revenue = revenue_fy or revenue_q
+    ebitda = ebitda_fy or ebitda_q
 
     current_ratio = _get_info_first(info, ["currentRatio"])
     if current_ratio is None:
@@ -268,7 +309,6 @@ def compute_metrics(ticker: str, info: Dict[str, Any], is_fy: pd.DataFrame, bs_f
     roa = _get_info_first(info, ["returnOnAssets"])
     roe = _get_info_first(info, ["returnOnEquity"])
     if roa is None or roe is None:
-        net_income = _find_row_value(is_fy, ["Net Income", "NetIncome", "Net Income Common Stockholders"])
         if roa is None:
             roa = _safe_div(net_income, total_assets)
         if roe is None:
@@ -294,18 +334,28 @@ def compute_metrics(ticker: str, info: Dict[str, Any], is_fy: pd.DataFrame, bs_f
         "debt_to_equity": debt_to_equity,
         "roa": roa,
         "roe": roe,
-        "revenue_fy": revenue,
-        "ebitda_fy": ebitda,
-        "equity_fy": equity,
-        "total_assets_fy": total_assets,
-        "current_assets_fy": current_assets,
-        "current_liabilities_fy": current_liabilities,
+        # Annual values
+        "revenue_fy": revenue_fy,
+        "ebitda_fy": ebitda_fy,
+        "net_income_fy": net_income_fy,
+        "equity_fy": equity_fy,
+        "total_assets_fy": total_assets_fy,
+        "current_assets_fy": current_assets_fy,
+        "current_liabilities_fy": current_liabilities_fy,
+        # Quarterly values
+        "revenue_q": revenue_q,
+        "ebitda_q": ebitda_q,
+        "net_income_q": net_income_q,
+        "equity_q": equity_q,
+        "total_assets_q": total_assets_q,
+        "current_assets_q": current_assets_q,
+        "current_liabilities_q": current_liabilities_q,
     }
     return pd.DataFrame([data])
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Annual statements via yfinance, FY-only columns, single Excel, with Metrics.")
+    ap = argparse.ArgumentParser(description="All financial statements via yfinance (annual + quarterly), FY-only for annual data, single Excel, with Metrics.")
     ap.add_argument("--tickers", default="tickers.txt", help="Path to tickers.txt (one per line, or comma-separated).")
     ap.add_argument("--outfile", default="fundamentals.xlsx", help="Output Excel workbook path.")
     ap.add_argument("--sleep", type=float, default=1.0, help="Seconds to sleep between tickers to avoid throttling.")
@@ -328,7 +378,7 @@ def main():
         for i, tk in enumerate(tickers, 1):
             print(f"[{i}/{len(tickers)}] {tk} ...", flush=True)
             try:
-                info, is_annual, bs_annual, cf_annual = fetch_annual_only(tk)
+                info, is_annual, bs_annual, cf_annual, is_quarterly, bs_quarterly, cf_quarterly = fetch_all_financials(tk)
             except Exception:
                 time.sleep(max(args.sleep, 0.0))
                 continue
@@ -337,14 +387,21 @@ def main():
             if fy_month is None:
                 fy_month = _infer_fy_month_from_statements([is_annual, bs_annual, cf_annual])
 
+            # Filter annual data by fiscal year
             is_fy = _filter_fy_columns(is_annual, fy_month)
             bs_fy = _filter_fy_columns(bs_annual, fy_month)
             cf_fy = _filter_fy_columns(cf_annual, fy_month)
 
-            if all(df is None or df.empty for df in (is_fy, bs_fy, cf_fy)):
+            # Quarterly data is used as-is (no FY filtering)
+            is_q = is_quarterly
+            bs_q = bs_quarterly
+            cf_q = cf_quarterly
+
+            if all(df is None or df.empty for df in (is_fy, bs_fy, cf_fy, is_q, bs_q, cf_q)):
                 time.sleep(max(args.sleep, 0.0))
                 continue
 
+            # Save annual statements
             if isinstance(is_fy, pd.DataFrame) and not is_fy.empty:
                 is_fy.to_excel(writer, sheet_name=f"{tk}_IS_Annual")
                 included.append({"ticker": tk, "sheet": f"{tk}_IS_Annual"})
@@ -355,8 +412,19 @@ def main():
                 cf_fy.to_excel(writer, sheet_name=f"{tk}_CF_Annual")
                 included.append({"ticker": tk, "sheet": f"{tk}_CF_Annual"})
 
+            # Save quarterly statements
+            if isinstance(is_q, pd.DataFrame) and not is_q.empty:
+                is_q.to_excel(writer, sheet_name=f"{tk}_IS_Quarterly")
+                included.append({"ticker": tk, "sheet": f"{tk}_IS_Quarterly"})
+            if isinstance(bs_q, pd.DataFrame) and not bs_q.empty:
+                bs_q.to_excel(writer, sheet_name=f"{tk}_BS_Quarterly")
+                included.append({"ticker": tk, "sheet": f"{tk}_BS_Quarterly"})
+            if isinstance(cf_q, pd.DataFrame) and not cf_q.empty:
+                cf_q.to_excel(writer, sheet_name=f"{tk}_CF_Quarterly")
+                included.append({"ticker": tk, "sheet": f"{tk}_CF_Quarterly"})
+
             try:
-                metrics_df = compute_metrics(tk, info, is_fy, bs_fy)
+                metrics_df = compute_metrics(tk, info, is_fy, bs_fy, is_q, bs_q)
                 metrics_df.to_excel(writer, sheet_name=f"{tk}_Metrics", index=False)
                 included.append({"ticker": tk, "sheet": f"{tk}_Metrics"})
             except Exception:
@@ -368,7 +436,7 @@ def main():
             if included:
                 pd.DataFrame(included).to_excel(writer, sheet_name="Index", index=False)
             else:
-                pd.DataFrame({"note": ["No tickers produced FY statements."]}).to_excel(writer, sheet_name="Index", index=False)
+                pd.DataFrame({"note": ["No tickers produced financial statements."]}).to_excel(writer, sheet_name="Index", index=False)
 
     print(f"Wrote: {args.outfile}")
 
