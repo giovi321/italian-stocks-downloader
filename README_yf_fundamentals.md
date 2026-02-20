@@ -43,6 +43,8 @@ python yf_fundamentals.py --tickers tickers.txt --outfile fundamentals.xlsx --sl
 ```
 AAPL
 MSFT
+ENI.MI, ISP.MI
+```
 Comma or newline separation is accepted.
 
 ## FY Filtering Logic
