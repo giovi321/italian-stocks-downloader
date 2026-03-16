@@ -11,12 +11,13 @@ It applies fiscal-year filtering only to annual data and includes all quarterly 
 - Skips tickers with no financial data
 - Metrics per ticker:
   - market_cap, enterprise_value
-  - ev_to_revenue, ev_to_ebitda
+  - ev_to_revenue, ev_to_ebitda (computed from TTM figures)
   - total_cash, total_debt
   - current_ratio, debt_to_equity
   - roa, roe
+  - **TTM values**: revenue_ttm, ebitda_ttm (sum of 4 most-recent quarters; denominators used for EV ratios)
   - **Annual values**: revenue_fy, ebitda_fy, net_income_fy, equity_fy, total_assets_fy, current_assets_fy, current_liabilities_fy
-  - **Quarterly values**: revenue_q, ebitda_q, net_income_q, equity_q, total_assets_q, current_assets_q, current_liabilities_q
+  - **Quarterly values**: revenue_q, ebitda_q, net_income_q, equity_q, total_assets_q, current_assets_q, current_liabilities_q (most recent single quarter)
 - Optional `Index` sheet listing all sheets
 
 ## Requirements
@@ -78,4 +79,7 @@ MSFT_Metrics
 - If none succeed, a file with a single "No data" sheet is produced.
 - For many tickers, increase sleep time to 2–3 seconds to avoid throttling.
 - Fiscal-year inference is heuristic; verify results on the first run.
-- Metrics prioritize annual values but fall back to quarterly if annual is unavailable.
+- **EV/Revenue and EV/EBITDA** are computed using TTM (trailing twelve months) denominators: the 4 most-recent quarters from `quarterly_financials` are summed. This corrects a known issue where `ticker.info` returns single-quarter denominators for some non-US tickers (e.g., EQT.ST).
+- If fewer than 4 quarterly periods are available, the TTM calculation returns `None` and the ratio falls back to the most recent full fiscal year value.
+- The raw TTM denominators (`revenue_ttm`, `ebitda_ttm`) are included in the Metrics sheet so you can verify ratio calculations.
+- Metrics for non-EV fields (ROA, ROE, current ratio, debt/equity) prioritize annual values but fall back to quarterly if annual is unavailable.

@@ -47,13 +47,14 @@ The script creates an Excel workbook with the following sheets:
 
 ### Statistics Sheet
 Contains all extracted statistics for each ticker:
-- **Valuation**: market_cap, enterprise_value, trailing_pe, forward_pe, price_to_sales, price_to_book, peg_ratio
+- **Valuation**: market_cap, enterprise_value, enterprise_to_revenue, enterprise_to_ebitda, trailing_pe, forward_pe, price_to_sales, price_to_book, peg_ratio
+- **TTM Denominators**: ttm_revenue, ttm_ebitda (sum of 4 most-recent quarters; used for enterprise_to_revenue and enterprise_to_ebitda)
 - **Dividends**: dividend_yield, dividend_rate, payout_ratio
 - **Financial Health**: total_debt_to_equity, current_ratio, quick_ratio, cash_ratio
 - **Profitability**: return_on_assets, return_on_equity, gross_margins, operating_margins, profit_margins
 - **Efficiency**: revenue_per_share, earnings_per_share, book_value_per_share
 - **Growth**: revenue_growth, earnings_growth, earnings_quarterly_growth
-- **Balance Sheet**: total_cash, total_debt, total_revenue, total_assets, total_stockholder_equity
+- **Balance Sheet**: total_cash, total_debt, total_revenue (TTM), total_assets, total_stockholder_equity
 - **Market Metrics**: beta, 52_week_change, shares_outstanding, float_shares, shares_short, short_ratio
 - **Calculated Ratios**: debt_to_assets, working_capital, net_profit_margin, ebitda_margin
 
@@ -71,14 +72,19 @@ Overview of all sheets and their contents
 ## Data Sources
 The script extracts data from multiple Yahoo Finance sources:
 1. **Primary**: `ticker.info` dictionary (most comprehensive)
-2. **Secondary**: Financial statements for calculated ratios
-3. **Calculated**: Derived metrics using multiple data points
+2. **TTM**: `ticker.quarterly_financials` — 4 most-recent quarters summed for revenue and EBITDA
+3. **Secondary**: Financial statements for calculated ratios
+4. **Calculated**: Derived metrics using multiple data points
 
 ## Key Metrics Explained
 
 ### Valuation Metrics
 - **Market Cap**: Total market value of all outstanding shares
 - **Enterprise Value**: Market cap + debt - cash (total company value)
+- **EV/Revenue**: Enterprise value ÷ TTM revenue (sum of 4 most-recent quarters). Falls back to `enterpriseToRevenue` from `ticker.info` only if TTM data is unavailable.
+- **EV/EBITDA**: Enterprise value ÷ TTM EBITDA (sum of 4 most-recent quarters). Falls back to `enterpriseToEbitda` from `ticker.info` only if TTM data is unavailable.
+- **ttm_revenue / ttm_ebitda**: Raw TTM denominators, exposed as output columns so you can verify the ratio calculations.
+- **total_revenue**: Populated from TTM revenue; falls back to `totalRevenue` from `ticker.info` only if TTM data is unavailable.
 - **P/E Ratios**: Price-to-earnings (trailing 12 months vs forward estimates)
 - **Price-to-Sales**: Market cap relative to revenue
 - **Price-to-Book**: Market cap relative to book value
@@ -122,6 +128,7 @@ Sample Statistics sheet rows:
 - **Rate Limiting**: Use sleep delays (1-3 seconds) to avoid throttling
 - **Currency**: Values are in the stock's native currency
 - **Error Handling**: Failed tickers are logged but don't stop the process
+- **EV Ratios**: `enterprise_to_revenue` and `enterprise_to_ebitda` are computed from TTM (trailing twelve months) figures by summing the 4 most-recent quarters from `quarterly_financials`. This corrects a known issue where `ticker.info` returns single-quarter denominators for some non-US tickers.
 - **Calculated Ratios**: Some ratios are calculated from statement data and may differ from Yahoo's displayed values
 
 ## Troubleshooting

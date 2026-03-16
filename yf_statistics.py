@@ -59,6 +59,40 @@ def safe_float(value: Any) -> Optional[float]:
         return None
 
 
+def compute_ttm(ticker_obj: yf.Ticker, row_aliases: List[str]) -> Optional[float]:
+    """Sum the 4 most-recent quarters for a given row to produce a TTM figure.
+
+    Returns None if fewer than 4 quarters are available or the row is not found.
+    """
+    try:
+        qf = ticker_obj.quarterly_financials
+        if qf is None or qf.empty:
+            return None
+        # Normalise index to lowercase strings for alias matching
+        idx_map = {str(ix).strip().lower(): ix for ix in qf.index}
+        matched_row = None
+        for alias in row_aliases:
+            key = alias.strip().lower()
+            if key in idx_map:
+                matched_row = qf.loc[idx_map[key]]
+                break
+        if matched_row is None:
+            return None
+        # Sort columns descending (most recent first) and take 4
+        dt_cols = pd.to_datetime(matched_row.index, errors='coerce')
+        order = dt_cols.argsort()[::-1]
+        sorted_vals = matched_row.iloc[order]
+        recent_4 = sorted_vals.iloc[:4]
+        if len(recent_4) < 4:
+            return None
+        numeric = pd.to_numeric(recent_4, errors='coerce')
+        if numeric.isna().any():
+            return None
+        return float(numeric.sum())
+    except Exception:
+        return None
+
+
 def extract_info_stats(ticker_obj: yf.Ticker) -> Dict[str, Any]:
     """Extract statistics that are available in the main info dictionary."""
     info = ticker_obj.info or {}
@@ -67,9 +101,23 @@ def extract_info_stats(ticker_obj: yf.Ticker) -> Dict[str, Any]:
     
     # Market Cap & Enterprise Value
     stats['market_cap'] = safe_float(info.get('marketCap'))
-    stats['enterprise_value'] = safe_float(info.get('enterpriseValue'))
-    stats['enterprise_to_revenue'] = safe_float(info.get('enterpriseToRevenue'))
-    stats['enterprise_to_ebitda'] = safe_float(info.get('enterpriseToEbitda'))
+    ev = safe_float(info.get('enterpriseValue'))
+    stats['enterprise_value'] = ev
+
+    ttm_revenue = compute_ttm(ticker_obj, ["Total Revenue", "TotalRevenue", "Revenue"])
+    ttm_ebitda = compute_ttm(ticker_obj, ["EBITDA", "Ebitda"])
+    stats['ttm_revenue'] = ttm_revenue
+    stats['ttm_ebitda'] = ttm_ebitda
+
+    if ev is not None and ttm_revenue is not None and ttm_revenue != 0:
+        stats['enterprise_to_revenue'] = ev / ttm_revenue
+    else:
+        stats['enterprise_to_revenue'] = safe_float(info.get('enterpriseToRevenue'))
+
+    if ev is not None and ttm_ebitda is not None and ttm_ebitda != 0:
+        stats['enterprise_to_ebitda'] = ev / ttm_ebitda
+    else:
+        stats['enterprise_to_ebitda'] = safe_float(info.get('enterpriseToEbitda'))
     
     # Valuation Ratios
     stats['trailing_pe'] = safe_float(info.get('trailingPE'))
@@ -109,7 +157,7 @@ def extract_info_stats(ticker_obj: yf.Ticker) -> Dict[str, Any]:
     # Balance Sheet Items
     stats['total_cash'] = safe_float(info.get('totalCash'))
     stats['total_debt'] = safe_float(info.get('totalDebt'))
-    stats['total_revenue'] = safe_float(info.get('totalRevenue'))
+    stats['total_revenue'] = ttm_revenue if ttm_revenue is not None else safe_float(info.get('totalRevenue'))
     stats['total_assets'] = safe_float(info.get('totalAssets'))
     stats['total_stockholder_equity'] = safe_float(info.get('totalStockholderEquity'))
     

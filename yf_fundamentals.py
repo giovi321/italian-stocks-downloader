@@ -218,6 +218,38 @@ def _safe_div(a: Optional[float], b: Optional[float]) -> Optional[float]:
         return None
 
 
+def _compute_ttm(is_q: pd.DataFrame, row_aliases: List[str]) -> Optional[float]:
+    """Sum the 4 most-recent quarters for a given row to produce a TTM figure.
+
+    Returns None if fewer than 4 quarters are available or the row is not found.
+    """
+    if is_q is None or is_q.empty:
+        return None
+    try:
+        idx_map = {str(ix).strip().lower(): ix for ix in is_q.index}
+        matched_row = None
+        for alias in row_aliases:
+            key = alias.strip().lower()
+            if key in idx_map:
+                matched_row = is_q.loc[idx_map[key]]
+                break
+        if matched_row is None:
+            return None
+        # Sort columns descending (most recent first) and take 4
+        dt_cols = pd.to_datetime(matched_row.index, errors='coerce')
+        order = dt_cols.argsort()[::-1]
+        sorted_vals = matched_row.iloc[order]
+        recent_4 = sorted_vals.iloc[:4]
+        if len(recent_4) < 4:
+            return None
+        numeric = pd.to_numeric(recent_4, errors='coerce')
+        if numeric.isna().any():
+            return None
+        return float(numeric.sum())
+    except Exception:
+        return None
+
+
 def compute_metrics(ticker: str, info: Dict[str, Any], is_fy: pd.DataFrame, bs_fy: pd.DataFrame, 
                    is_q: pd.DataFrame, bs_q: pd.DataFrame) -> pd.DataFrame:
     mc = _get_info_first(info, ["marketCap", "marketcap"])
@@ -295,8 +327,17 @@ def compute_metrics(ticker: str, info: Dict[str, Any], is_fy: pd.DataFrame, bs_f
     current_assets = current_assets_fy or current_assets_q
     current_liabilities = current_liabilities_fy or current_liabilities_q
     net_income = net_income_fy or net_income_q
-    revenue = revenue_fy or revenue_q
-    ebitda = ebitda_fy or ebitda_q
+
+    # TTM: sum of 4 most-recent quarters; fall back to FY if fewer than 4 quarters available
+    revenue_ttm = _compute_ttm(is_q, ["Total Revenue", "TotalRevenue", "Revenue"])
+    if revenue_ttm is None:
+        revenue_ttm = revenue_fy
+    ebitda_ttm = _compute_ttm(is_q, ["EBITDA", "Ebitda"])
+    if ebitda_ttm is None:
+        ebitda_ttm = ebitda_fy
+
+    revenue = revenue_ttm
+    ebitda = ebitda_ttm
 
     current_ratio = _get_info_first(info, ["currentRatio"])
     if current_ratio is None:
@@ -319,8 +360,8 @@ def compute_metrics(ticker: str, info: Dict[str, Any], is_fy: pd.DataFrame, bs_f
         if mc is not None or total_debt is not None or total_cash is not None:
             ev = (mc or 0.0) + (total_debt or 0.0) - (total_cash or 0.0)
 
-    ev_to_revenue = _safe_div(ev, revenue)
-    ev_to_ebitda = _safe_div(ev, ebitda)
+    ev_to_revenue = _safe_div(ev, revenue_ttm)
+    ev_to_ebitda = _safe_div(ev, ebitda_ttm)
 
     data = {
         "ticker": ticker,
@@ -334,6 +375,9 @@ def compute_metrics(ticker: str, info: Dict[str, Any], is_fy: pd.DataFrame, bs_f
         "debt_to_equity": debt_to_equity,
         "roa": roa,
         "roe": roe,
+        # TTM values (used for EV ratios)
+        "revenue_ttm": revenue_ttm,
+        "ebitda_ttm": ebitda_ttm,
         # Annual values
         "revenue_fy": revenue_fy,
         "ebitda_fy": ebitda_fy,
@@ -342,7 +386,7 @@ def compute_metrics(ticker: str, info: Dict[str, Any], is_fy: pd.DataFrame, bs_f
         "total_assets_fy": total_assets_fy,
         "current_assets_fy": current_assets_fy,
         "current_liabilities_fy": current_liabilities_fy,
-        # Quarterly values
+        # Quarterly values (most recent single quarter)
         "revenue_q": revenue_q,
         "ebitda_q": ebitda_q,
         "net_income_q": net_income_q,
